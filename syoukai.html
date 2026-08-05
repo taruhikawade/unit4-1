@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>高難易度！英語リスニング＆選択クイズ</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f4f7f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .quiz-container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 500px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.5rem;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .status-bar {
+      font-weight: bold;
+      color: #666;
+      margin-bottom: 15px;
+    }
+    .audio-btn {
+      background-color: #4A90E2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1rem;
+      border-radius: 25px;
+      cursor: pointer;
+      margin-bottom: 20px;
+      transition: background 0.2s;
+    }
+    .audio-btn:hover {
+      background-color: #357ABD;
+    }
+    .question-type {
+      font-weight: bold;
+      color: #2c3e50;
+      background: #eef2f5;
+      padding: 8px;
+      border-radius: 5px;
+      margin-bottom: 15px;
+    }
+    .options-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .option-btn {
+      background-color: #fff;
+      border: 2px solid #ddd;
+      padding: 12px;
+      font-size: 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .option-btn:hover:not(:disabled) {
+      border-color: #4A90E2;
+      background-color: #f0f7ff;
+    }
+    .option-btn:disabled {
+      cursor: default;
+    }
+    .feedback {
+      margin-top: 15px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      min-height: 1.5em;
+    }
+    .correct { color: #27ae60; }
+    .incorrect { color: #e74c3c; }
+    .next-btn {
+      margin-top: 15px;
+      background-color: #27ae60;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      display: none;
+    }
+    .next-btn:hover {
+      background-color: #219150;
+    }
+    .result-screen {
+      display: none;
+    }
+    .restart-btn {
+      background-color: #4A90E2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="quiz-container">
+  <!-- クイズ画面 -->
+  <div id="quiz-screen">
+    <div class="status-bar">
+      第 <span id="current-question-num">1</span> / 10 問
+    </div>
+
+    <button id="listen-btn" class="audio-btn">🔊 英文を聞く / もう一度聞く</button>
+
+    <div id="question-type" class="question-type">問題形式</div>
+
+    <div id="options" class="options-container">
+      <!-- 選択肢ボタン -->
+    </div>
+
+    <div id="feedback" class="feedback"></div>
+    <button id="next-btn" class="next-btn">次の問題へ</button>
+  </div>
+
+  <!-- 結果画面 -->
+  <div id="result-screen" class="result-screen">
+    <h2>クイズ終了！</h2>
+    <p style="font-size: 1.3rem;">あなたの正解数は...</p>
+    <p style="font-size: 2rem; font-weight: bold; color: #4A90E2;">
+      <span id="final-score">0</span> / 10 問
+    </p>
+    <button id="restart-btn" class="restart-btn">もう一度挑戦する</button>
+  </div>
+</div>
+
+<script>
+  // 英文データセット
+  // verbForms: [正解(原形), 進行形, 過去形]
+  // wrongObjects: スペル・発音が似ている紛らわしい目的語のダミー
+  // wrongTrans: 紛らわしい日本語訳のダミー
+  const database = [
+    { text: "You can see a baseball game.", translation: "野球の試合を見ることができます。", verbForms: ["see", "seeing", "saw"], object: "a baseball game", wrongObjects: ["a basketball game", "a base game"], wrongTrans: ["バスケットボールの試合を見ることができます。", "野球の試合をすることができます。"] },
+    { text: "You can eat sushi.", translation: "寿司を食べることができます。", verbForms: ["eat", "eating", "ate"], object: "sushi", wrongObjects: ["such", "sashimi"], wrongTrans: ["刺身を食べることができます。", "寿司を作ることができます。"] },
+    { text: "You can see a koala.", translation: "コアラを見ることができます。", verbForms: ["see", "seeing", "saw"], object: "a koala", wrongObjects: ["a gorilla", "a cola"], wrongTrans: ["ゴリラを見ることができます。", "コアラを買うことができます。"] },
+    { text: "You can eat curry and rice.", translation: "カレーライスを食べることができます。", verbForms: ["eat", "eating", "ate"], object: "curry and rice", wrongObjects: ["berry and rice", "curry and ice"], wrongTrans: ["カレーとアイスを食べることができます。", "カレーライスを作ることができます。"] },
+    { text: "You can see a piano concert.", translation: "ピアノコンサートを見ることができます。", verbForms: ["see", "seeing", "saw"], object: "a piano concert", wrongObjects: ["a guitar concert", "a piano contest"], wrongTrans: ["ピアノコンテストを見ることができます。", "ギターコンサートを見ることができます。"] },
+    { text: "You can see a soccer game.", translation: "サッカーの試合を見ることができます。", verbForms: ["see", "seeing", "saw"], object: "a soccer game", wrongObjects: ["a socks game", "a tennis game"], wrongTrans: ["テニスの試合を見ることができます。", "サッカーの試合をすることができます。"] },
+    { text: "You can visit a temple.", translation: "お寺を訪れることができます。", verbForms: ["visit", "visiting", "visited"], object: "a temple", wrongObjects: ["a temporary", "a church"], wrongTrans: ["神社を訪れることができます。", "お寺を建てることができます。"] },
+    { text: "You can eat pizza.", translation: "ピザを食べることができます。", verbForms: ["eat", "eating", "ate"], object: "pizza", wrongObjects: ["piece", "pita"], wrongTrans: ["ピタパンを食べることができます。", "ピザを作ることができます。"] },
+    { text: "You can see a dolphin.", translation: "イルカを見ることができます。", verbForms: ["see", "seeing", "saw"], object: "a dolphin", wrongObjects: ["a doll", "a penguin"], wrongTrans: ["ペンギンを見ることができます。", "イルカと泳ぐことができます。"] },
+    { text: "You can eat ramen.", translation: "ラーメンを食べることができます。", verbForms: ["eat", "eating", "ate"], object: "ramen", wrongObjects: ["lemon", "rice"], wrongTrans: ["レモンを食べることができます。", "ラーメンを作ることができます。"] },
+    { text: "You can see a fireworks festival.", translation: "花火大会を見ることができます。", verbForms: ["see", "seeing", "saw"], object: "a fireworks festival", wrongObjects: ["a fire station", "a flower festival"], wrongTrans: ["フラワーフェスティバルを見ることができます。", "消防署を見ることができます。"] },
+    { text: "You can see an elephant.", translation: "ゾウを見ることができます。", verbForms: ["see", "seeing", "saw"], object: "an elephant", wrongObjects: ["an elevator", "an element"], wrongTrans: ["エレベーターを見ることができます。", "ゾウに乗ることができます。"] },
+    { text: "You can eat an orange.", translation: "オレンジを食べることができます。", verbForms: ["eat", "eating", "ate"], object: "an orange", wrongObjects: ["an apple", "an arrange"], wrongTrans: ["リンゴを食べることができます。", "オレンジを買うことができます。"] },
+    { text: "You can visit a museum.", translation: "博物館を訪れることができます。", verbForms: ["visit", "visiting", "visited"], object: "a museum", wrongObjects: ["a music hall", "a mosque"], wrongTrans: ["音楽堂を訪れることができます。", "博物館に行くことができます。"] },
+    { text: "You can enjoy skiing.", translation: "スキーを楽しむことができます。", verbForms: ["enjoy", "enjoying", "enjoyed"], object: "skiing", wrongObjects: ["sky", "skating"], wrongTrans: ["スケートを楽しむことができます。", "空を楽しむことができます。"] },
+    { text: "You can buy a T-shirt.", translation: "Tシャツを買うことができます。", verbForms: ["buy", "buying", "bought"], object: "a T-shirt", wrongObjects: ["a shirt", "a sheet"], wrongTrans: ["シーツを買うことができます。", "Tシャツを着ることができます。"] },
+    { text: "You can buy a notebook.", translation: "ノートを買うことができます。", verbForms: ["buy", "buying", "bought"], object: "a notebook", wrongObjects: ["a textbook", "a netbook"], wrongTrans: ["教科書を買うことができます。", "ノートを使うことができます。"] },
+    { text: "You can buy a bag.", translation: "バッグを買うことができます。", verbForms: ["buy", "buying", "bought"], object: "a bag", wrongObjects: ["a bug", "a back"], wrongTrans: ["背中を買うことができます。", "バッグを作ることができます。"] },
+    { text: "You can watch TV.", translation: "テレビを見ることができます。", verbForms: ["watch", "watching", "watched"], object: "TV", wrongObjects: ["a watch", "PC"], wrongTrans: ["腕時計を見ることができます。", "テレビを買うことができます。"] },
+    { text: "You can watch a movie.", translation: "映画を見ることができます。", verbForms: ["watch", "watching", "watched"], object: "a movie", wrongObjects: ["a movement", "a music"], wrongTrans: ["音楽を聞くことができます。", "映画を撮ることができます。"] },
+    { text: "You can go to a museum.", translation: "博物館に行くことができます。", verbForms: ["go to", "going to", "went to"], object: "a museum", wrongObjects: ["a music hall", "a mosque"], wrongTrans: ["博物館を訪れることができます。", "美術館に行くことができます。"] },
+    { text: "You can go to a temple.", translation: "お寺に行くことができます。", verbForms: ["go to", "going to", "went to"], object: "a temple", wrongObjects: ["a temporary", "a church"], wrongTrans: ["神社に行くことができます。", "お寺を訪れることができます。"] },
+    { text: "You can go to an amusement park.", translation: "遊園地に行くことができます。", verbForms: ["go to", "going to", "went to"], object: "an amusement park", wrongObjects: ["an apartment", "a park"], wrongTrans: ["アパートに行くことができます。", "公園に行くことができます。"] },
+    // 追加文
+    { text: "You can go camping.", translation: "キャンプに行くことができます。", verbForms: ["go", "going", "went"], object: "camping", wrongObjects: ["campus", "campaign"], wrongTrans: ["キャンパスに行くことができます。", "キャンペーンに行くことができます。"] },
+    { text: "You can go fishing.", translation: "釣りに行くことができます。", verbForms: ["go", "going", "went"], object: "fishing", wrongObjects: ["finish", "fitting"], wrongTrans: ["フィニッシュに行くことができます。", "買い出しに行くことができます。"] }
+  ];
+
+  const TOTAL_QUESTIONS = 10;
+  let quizList = [];
+  let currentQuestionIndex = 0;
+  let score = 0;
+  let currentItem = null;
+
+  // DOM要素
+  const quizScreen = document.getElementById('quiz-screen');
+  const resultScreen = document.getElementById('result-screen');
+  const currentNumEl = document.getElementById('current-question-num');
+  const listenBtn = document.getElementById('listen-btn');
+  const questionTypeEl = document.getElementById('question-type');
+  const optionsEl = document.getElementById('options');
+  const feedbackEl = document.getElementById('feedback');
+  const nextBtn = document.getElementById('next-btn');
+  const finalScoreEl = document.getElementById('final-score');
+  const restartBtn = document.getElementById('restart-btn');
+
+  function shuffle(array) {
+    return array.slice().sort(() => Math.random() - 0.5);
+  }
+
+  function initQuiz() {
+    quizList = shuffle(database).slice(0, TOTAL_QUESTIONS);
+    currentQuestionIndex = 0;
+    score = 0;
+    quizScreen.style.display = 'block';
+    resultScreen.style.display = 'none';
+    loadQuestion();
+  }
+
+  function playAudio(text) {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const uttr = new SpeechSynthesisUtterance(text);
+      uttr.lang = 'en-US';
+      uttr.rate = 0.75; // やや聞き取りやすいスピードに
+      window.speechSynthesis.speak(uttr);
+    } else {
+      alert("お使いのブラウザは音声読み上げに対応していません。");
+    }
+  }
+
+  function loadQuestion() {
+    feedbackEl.textContent = '';
+    feedbackEl.className = 'feedback';
+    nextBtn.style.display = 'none';
+    optionsEl.innerHTML = '';
+
+    currentItem = quizList[currentQuestionIndex];
+    currentNumEl.textContent = currentQuestionIndex + 1;
+
+    // 出題形式 (1:日本語訳, 2:動詞の時制, 3:目的語・補語)
+    const currentMode = Math.floor(Math.random() * 3) + 1;
+
+    let correctAnswer = '';
+    let options = [];
+
+    if (currentMode === 1) {
+      questionTypeEl.textContent = "【問題】英文の「正確な日本語訳」を選んでください";
+      correctAnswer = currentItem.translation;
+      // 紛らわしい誤答＋正解をシャッフル
+      options = shuffle([correctAnswer, ...currentItem.wrongTrans]);
+
+    } else if (currentMode === 2) {
+      questionTypeEl.textContent = "【問題】助動詞 can の後ろに入る「正しい動詞の形」を選んでください";
+      correctAnswer = currentItem.verbForms[0]; // 原形
+      // [原形, 進行形, 過去形] の3択
+      options = shuffle(currentItem.verbForms);
+
+    } else {
+      questionTypeEl.textContent = "【問題】使われていた「正しい単語（目的語など）」を選んでください";
+      correctAnswer = currentItem.object;
+      // 似た発音・スペルの選択肢＋正解をシャッフル
+      options = shuffle([correctAnswer, ...currentItem.wrongObjects]);
+    }
+
+    // ボタンの生成
+    options.forEach(optText => {
+      const btn = document.createElement('button');
+      btn.className = 'option-btn';
+      btn.textContent = optText;
+      btn.onclick = () => checkAnswer(optText, correctAnswer);
+      optionsEl.appendChild(btn);
+    });
+
+    playAudio(currentItem.text);
+  }
+
+  function checkAnswer(selected, correct) {
+    const buttons = optionsEl.querySelectorAll('.option-btn');
+    buttons.forEach(btn => btn.disabled = true);
+
+    if (selected === correct) {
+      score++;
+      feedbackEl.textContent = "⭕ 正解！ (" + currentItem.text + ")";
+      feedbackEl.classList.add('correct');
+    } else {
+      feedbackEl.textContent = "❌ 不正解... 正解: " + correct;
+      feedbackEl.classList.add('incorrect');
+    }
+
+    if (currentQuestionIndex < TOTAL_QUESTIONS - 1) {
+      nextBtn.textContent = "次の問題へ";
+    } else {
+      nextBtn.textContent = "結果を見る";
+    }
+    nextBtn.style.display = 'inline-block';
+  }
+
+  listenBtn.onclick = () => {
+    if (currentItem) playAudio(currentItem.text);
+  };
+
+  nextBtn.onclick = () => {
+    currentQuestionIndex++;
+    if (currentQuestionIndex < TOTAL_QUESTIONS) {
+      loadQuestion();
+    } else {
+      showResult();
+    }
+  };
+
+  restartBtn.onclick = () => {
+    initQuiz();
+  };
+
+  function showResult() {
+    quizScreen.style.display = 'none';
+    resultScreen.style.display = 'block';
+    finalScoreEl.textContent = score;
+  }
+
+  window.onload = initQuiz;
+</script>
+
+</body>
+</html>
